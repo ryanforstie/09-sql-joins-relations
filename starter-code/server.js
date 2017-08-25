@@ -26,14 +26,11 @@ app.get('/new', function(request, response) {
 });
 
 app.get('/articles', function(request, response) {
-  // REVIEW: This query will join the data together from our tables and send it back to the 
+  // REVIEW: This query will join the data together from our tables and send it back to the
   // TODO(DONE): Write a SQL query which joins all data from articles and authors tables on the author_id value of each
-  client.query(`SELECT articles.id, title, authors.name AS author, authors.url AS
-    authorURL, markdown, publishedOn
-    FROM articles
+  client.query(`SELECT * FROM articles
     INNER JOIN authors
-    ON articles.authorId = authors.id
-    ORDER BY publishedOn DESC;`)
+    ON articles.author_id = authors.author_id;`)
     .then(function(result) {
       response.send(result.rows);
     })
@@ -44,8 +41,8 @@ app.get('/articles', function(request, response) {
 
 app.post('/articles', function(request, response) {
   client.query(
-    `INSERT INTO
-    articles(author, "authorUrl")
+    `INSERT INTO author(author, "authorUrl")
+    VAULES($1, $2)
     ON CONFLICT DO NOTHING;
     `, // TODO(DONE): Write a SQL query to insert a new author, ON CONFLICT DO NOTHING
     [
@@ -62,10 +59,11 @@ app.post('/articles', function(request, response) {
 
   function queryTwo() {
     client.query(
-      `SELECT * FROM authors WHERE author=VAULES($1)`, // TODO(DONE): Write a SQL query to retrieve the author_id from the authors table for the new article
+      `SELECT author_id FROM authors WHERE author=$1`, // TODO(DONE): Write a SQL query to retrieve the author_id from the authors table for the new article
       [
         request.body.author
       ], // TODO(DONE): Add the author name as data for the SQL query
+
       function(err, result) {
         if (err) console.error(err)
         queryThree(result.rows[0].author_id) // This is our third query, to be executed when the second is complete. We are also passing the author_id into our third query
@@ -73,16 +71,19 @@ app.post('/articles', function(request, response) {
     )
   }
 
-  function queryThree(author_id) {
+  function queryThree(author_id) { // eslint-disable-line
     client.query(
       `INSERT INTO
-      articles(title, category, "publishedOn", body, ${author_id})
-      VALUES (1$, 2$, $3, $4)`, // TODO(DONE): Write a SQL query to insert the new article using the author_id from our previous query
+      articles (author_id, title, category, "publishedOn", body)
+      SELECT author_id, $1, $2, $3, $4
+      FROM authors
+      WHERE author = $5;`, // TODO(DONE): Write a SQL query to insert the new article using the author_id from our previous query
       [
         request.body.title,
         request.body.category,
         request.body.publishedOn,
-        request.body.body
+        request.body.body,
+        request.body.author
       ], // TODO(DONE): Add the data from our new article, including the author_id, as data for the SQL query.
 
       function(err) {
@@ -100,8 +101,8 @@ app.put('/articles/:id', function(request, response) {
   client.query(
       `UPDATE authors
     SET
-      author=$2, "authorUrl"=$3,
-    WHERE author_id=$7;
+      author=$1, "authorUrl"=$2,
+    WHERE author_id=$3;
     `, [
       request.body.author,
       request.body.authorUrl,
@@ -115,14 +116,15 @@ app.put('/articles/:id', function(request, response) {
       client.query(
         `UPDATE authors
     SET
-      title=$1, category=$4, "publishedOn"=$5, body=$6
-    WHERE author_id=$7;
+      author_id=$1, title=$2, category=$3, "publishedOn"=$4, body=$5
+    WHERE author_id=$6;
     `, [
+      request.body.author_id,
       request.body.title,
       request.body.category,
       request.body.publishedOn,
       request.body.body,
-      request.body.author_id
+      request.params.id
     ]
       )
     })

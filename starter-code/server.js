@@ -1,30 +1,36 @@
 'use strict';
 
+// Setting up environment and loading libraries/modules
 const pg = require('pg');
 const fs = require('fs');
 const express = require('express');
 const bodyParser = require('body-parser');
 const PORT = process.env.PORT || 3000;
 const app = express();
-const conString = 'postgres://localhost:5432'; // TODO(DONE): Don't forget to set your own conString
+const conString = 'postgres://localhost:5432'; // TODO(DONE)
 const client = new pg.Client(conString);
+
+// Connecting the server and the DB
 client.connect();
 client.on('error', function(error) {
   console.error(error);
 });
 
+// Middleware magic
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
   extended: true
 }));
 app.use(express.static('./public'));
 
+// Routes for requesting HTML resources
 app.get('/new', function(request, response) {
   response.sendFile('new.html', {
     root: './public'
   });
 });
 
+// Routes for making API calls to enact CRUD Opertions on our database
 app.get('/articles', function(request, response) {
   // REVIEW: This query will join the data together from our tables and send it back to the
   // TODO(DONE): Write a SQL query which joins all data from articles and authors tables on the author_id value of each
@@ -41,7 +47,7 @@ app.get('/articles', function(request, response) {
 
 app.post('/articles', function(request, response) {
   client.query(
-    `INSERT INTO author(author, "authorUrl")
+    `INSERT INTO authors(author, "authorUrl")
     VAULES($1, $2)
     ON CONFLICT DO NOTHING;
     `, // TODO(DONE): Write a SQL query to insert a new author, ON CONFLICT DO NOTHING
@@ -74,16 +80,15 @@ app.post('/articles', function(request, response) {
   function queryThree(author_id) { // eslint-disable-line
     client.query(
       `INSERT INTO
-      articles (author_id, title, category, "publishedOn", body)
-      SELECT author_id, $1, $2, $3, $4
-      FROM authors
-      WHERE author = $5;`, // TODO(DONE): Write a SQL query to insert the new article using the author_id from our previous query
+      articles(author_id, title, category, "publishedOn", body)
+      VALUES ($1, $2, $3, $4, $5);`,
+       // TODO(DONE): Write a SQL query to insert the new article using the author_id from our previous query
       [
+        author_id,
         request.body.title,
         request.body.category,
         request.body.publishedOn,
-        request.body.body,
-        request.body.author
+        request.body.body
       ], // TODO(DONE): Add the data from our new article, including the author_id, as data for the SQL query.
 
       function(err) {
@@ -100,10 +105,9 @@ app.put('/articles/:id', function(request, response) {
   // TODO(DONE): Add the required values from the request as data for the SQL query to interpolate
   client.query(
       `UPDATE authors
-    SET
-      author=$1, "authorUrl"=$2,
-    WHERE author_id=$3;
-    `, [
+    SET author=$1, "authorUrl"=$2,
+    WHERE author_id=$3;`,
+    [
       request.body.author,
       request.body.authorUrl,
       request.body.author_id
@@ -114,18 +118,17 @@ app.put('/articles/:id', function(request, response) {
       // now have an author_id, in addition to title, category, publishedOn, and body.
       // TODO(DONE): Add the required values from the request as data for the SQL query to interpolate
       client.query(
-        `UPDATE authors
-    SET
-      author_id=$1, title=$2, category=$3, "publishedOn"=$4, body=$5
-    WHERE author_id=$6;
-    `, [
-      request.body.author_id,
-      request.body.title,
-      request.body.category,
-      request.body.publishedOn,
-      request.body.body,
-      request.params.id
-    ]
+       `UPDATE articles
+        SET author_id=$1, title=$2, category=$3, "publishedOn"=$4, body=$5
+        WHERE author_id=$6;`,
+        [
+          request.body.author_id,
+          request.body.title,
+          request.body.category,
+          request.body.publishedOn,
+          request.body.body,
+          request.params.id
+        ]
       )
     })
     .then(function() {

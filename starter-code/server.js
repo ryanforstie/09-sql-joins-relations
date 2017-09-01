@@ -57,7 +57,7 @@ app.post('/articles', function(request, response) {
     `, // TODO(DONE): Write a SQL query to insert a new author, ON CONFLICT DO NOTHING
     [
       request.body.author,
-      request.body.authorUrl,
+      request.body.authorUrl
     ],
     // TODO(DONE): Add the author and "authorUrl" as data for the SQL query
 
